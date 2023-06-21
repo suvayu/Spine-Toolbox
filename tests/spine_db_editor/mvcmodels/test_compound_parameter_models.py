@@ -22,7 +22,7 @@ from spinetoolbox.spine_db_editor.mvcmodels.compound_parameter_models import (
     CompoundRelationshipParameterValueModel,
 )
 from spinetoolbox.spine_db_editor.widgets.spine_db_editor import SpineDBEditor
-from ...mock_helpers import TestSpineDBManager
+from ...mock_helpers import MockSpineDBManager
 
 
 class TestCompoundObjectParameterDefinitionModel(unittest.TestCase):
@@ -34,7 +34,7 @@ class TestCompoundObjectParameterDefinitionModel(unittest.TestCase):
     def setUp(self):
         app_settings = MagicMock()
         logger = MagicMock()
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="test_db", create=True)
         with patch("spinetoolbox.spine_db_editor.widgets.spine_db_editor.SpineDBEditor.restore_ui"):
             self._db_editor = SpineDBEditor(self._db_mngr, {"sqlite://": "test_db"})
@@ -87,7 +87,7 @@ class TestCompoundRelationshipParameterDefinitionModel(unittest.TestCase):
     def setUp(self):
         app_settings = MagicMock()
         logger = MagicMock()
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="test_db", create=True)
         with patch("spinetoolbox.spine_db_editor.widgets.spine_db_editor.SpineDBEditor.restore_ui"):
             self._db_editor = SpineDBEditor(self._db_mngr, {"sqlite://": "test_db"})
@@ -143,7 +143,7 @@ class TestCompoundObjectParameterValueModel(unittest.TestCase):
     def setUp(self):
         app_settings = MagicMock()
         logger = MagicMock()
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="test_db", create=True)
         self._db_mngr.fetch_all(self._db_map)
         with patch("spinetoolbox.spine_db_editor.widgets.spine_db_editor.SpineDBEditor.restore_ui"):
@@ -212,7 +212,7 @@ class TestCompoundRelationshipParameterValueModel(unittest.TestCase):
     def setUp(self):
         app_settings = MagicMock()
         logger = MagicMock()
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="test_db", create=True)
         self._db_mngr.fetch_all(self._db_map)
         with patch("spinetoolbox.spine_db_editor.widgets.spine_db_editor.SpineDBEditor.restore_ui"):

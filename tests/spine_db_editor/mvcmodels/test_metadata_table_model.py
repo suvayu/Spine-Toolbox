@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QApplication
 from spinetoolbox.helpers import signal_waiter
 from spinetoolbox.spine_db_editor.mvcmodels.metadata_table_model_base import Column
 from spinetoolbox.spine_db_editor.mvcmodels.metadata_table_model import MetadataTableModel
-from ...mock_helpers import TestSpineDBManager
+from ...mock_helpers import MockSpineDBManager
 
 
 class TestMetadataTableModel(unittest.TestCase):
@@ -34,7 +34,7 @@ class TestMetadataTableModel(unittest.TestCase):
     def setUp(self):
         mock_settings = mock.Mock()
         mock_settings.value.side_effect = lambda *args, **kwargs: 0
-        self._db_mngr = TestSpineDBManager(mock_settings, None)
+        self._db_mngr = MockSpineDBManager(mock_settings, None)
         logger = mock.MagicMock()
         self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="database", create=True)
         QApplication.processEvents()

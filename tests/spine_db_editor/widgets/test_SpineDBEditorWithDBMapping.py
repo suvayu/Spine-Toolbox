@@ -20,7 +20,7 @@ import logging
 import sys
 from PySide6.QtWidgets import QApplication
 from spinetoolbox.spine_db_editor.widgets.spine_db_editor import SpineDBEditor
-from ...mock_helpers import TestSpineDBManager
+from ...mock_helpers import MockSpineDBManager
 
 
 class TestSpineDBEditorWithDBMapping(unittest.TestCase):
@@ -47,7 +47,7 @@ class TestSpineDBEditorWithDBMapping(unittest.TestCase):
         ):
             mock_settings = mock.Mock()
             mock_settings.value.side_effect = lambda *args, **kwards: 0
-            self.db_mngr = TestSpineDBManager(mock_settings, None)
+            self.db_mngr = MockSpineDBManager(mock_settings, None)
             logger = mock.MagicMock()
             self.db_map = self.db_mngr.get_db_map(url, logger, codename="db", create=True)
             self.spine_db_editor = SpineDBEditor(self.db_mngr, {url: "db"})

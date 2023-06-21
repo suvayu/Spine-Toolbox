@@ -17,7 +17,7 @@ from PySide6.QtCore import Qt, QItemSelectionModel
 from spinetoolbox.helpers import DB_ITEM_SEPARATOR
 
 
-class TestSpineDBEditorFilterMixin:
+class SpineDBEditorFilterTestMixin:
     @property
     def _parameter_models(self):
         return (

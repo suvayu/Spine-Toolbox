@@ -17,7 +17,7 @@ from spinetoolbox.helpers import DB_ITEM_SEPARATOR
 from spinetoolbox.spine_db_editor.mvcmodels.single_parameter_models import SingleParameterModel
 
 
-class TestSpineDBEditorAddMixin:
+class SpineDBEditorAddTestMixin:
     def test_add_object_classes_to_object_tree_model(self):
         """Test that object classes are added to the object tree model."""
         root_item = self.spine_db_editor.object_tree_model.root_item

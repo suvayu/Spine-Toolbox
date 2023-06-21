@@ -16,7 +16,7 @@ from PySide6.QtCore import QModelIndex, QObject
 from PySide6.QtWidgets import QApplication
 
 from spinetoolbox.spine_db_editor.mvcmodels.frozen_table_model import FrozenTableModel
-from tests.mock_helpers import TestSpineDBManager
+from tests.mock_helpers import MockSpineDBManager
 
 
 class TestFrozenTableModel(unittest.TestCase):
@@ -28,7 +28,7 @@ class TestFrozenTableModel(unittest.TestCase):
     def setUp(self):
         app_settings = MagicMock()
         logger = MagicMock()
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="test_db", create=True)
         self._parent = QObject()
         self._model = FrozenTableModel(self._db_mngr, self._parent)

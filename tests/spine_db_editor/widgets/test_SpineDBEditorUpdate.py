@@ -16,7 +16,7 @@ Unit tests for the TreeViewFormUpdateMixin.
 from spinetoolbox.helpers import DB_ITEM_SEPARATOR
 
 
-class TestSpineDBEditorUpdateMixin:
+class SpineDBEditorUpdateTestMixin:
     def test_update_object_classes_in_object_tree_model(self):
         """Test that object classes are updated in the object tree model."""
         self.spine_db_editor.init_models()

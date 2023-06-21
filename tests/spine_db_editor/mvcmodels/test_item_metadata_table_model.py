@@ -35,7 +35,7 @@ from spinedb_api import (
 )
 from spinetoolbox.spine_db_editor.mvcmodels.item_metadata_table_model import ItemMetadataTableModel
 from spinetoolbox.spine_db_editor.mvcmodels.metadata_table_model_base import Column
-from ...mock_helpers import TestSpineDBManager
+from ...mock_helpers import MockSpineDBManager
 
 
 class TestItemMetadataTableModelWithExistingData(unittest.TestCase):
@@ -84,7 +84,7 @@ class TestItemMetadataTableModelWithExistingData(unittest.TestCase):
         db_map.connection.close()
         mock_settings = mock.Mock()
         mock_settings.value.side_effect = lambda *args, **kwargs: 0
-        self._db_mngr = TestSpineDBManager(mock_settings, None)
+        self._db_mngr = MockSpineDBManager(mock_settings, None)
         logger = mock.MagicMock()
         self._db_map = self._db_mngr.get_db_map(self._url, logger, codename="database")
         QApplication.processEvents()

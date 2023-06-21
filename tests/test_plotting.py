@@ -48,7 +48,7 @@ from spinetoolbox.plotting import (
     IndexName,
 )
 from spinetoolbox.spine_db_editor.widgets.spine_db_editor import SpineDBEditor
-from tests.mock_helpers import TestSpineDBManager
+from tests.mock_helpers import MockSpineDBManager
 
 
 class TestBase(unittest.TestCase):
@@ -63,7 +63,7 @@ class TestBase(unittest.TestCase):
         ):
             mock_settings = Mock()
             mock_settings.value.side_effect = lambda *args, **kwargs: 0
-            self._db_mngr = TestSpineDBManager(mock_settings, None)
+            self._db_mngr = MockSpineDBManager(mock_settings, None)
             logger = MagicMock()
             self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="test database", create=True)
             self._db_editor = SpineDBEditor(self._db_mngr, {"sqlite://": "test database"})

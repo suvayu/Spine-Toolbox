@@ -25,7 +25,7 @@ from spinetoolbox.project_item_icon import ExclamationIcon, ProjectItemIcon, Ran
 from spinetoolbox.project_item.logging_connection import LoggingConnection
 from spinetoolbox.link import Link
 from spinetoolbox.project_commands import MoveIconCommand
-from tests.mock_helpers import add_view, clean_up_toolbox, create_toolboxui_with_project, TestSpineDBManager
+from tests.mock_helpers import add_view, clean_up_toolbox, create_toolboxui_with_project, MockSpineDBManager
 
 
 class TestProjectItemIcon(unittest.TestCase):
@@ -152,7 +152,7 @@ class TestLink(unittest.TestCase):
     def setUp(self):
         self._temp_dir = TemporaryDirectory()
         self._toolbox = create_toolboxui_with_project(self._temp_dir.name)
-        self._toolbox.db_mngr = TestSpineDBManager(MagicMock(), None)
+        self._toolbox.db_mngr = MockSpineDBManager(MagicMock(), None)
         source_item_icon = ProjectItemIcon(self._toolbox, ":/icons/home.svg", QColor(Qt.GlobalColor.gray))
         source_item_icon.update_name_item("source icon")
         destination_item_icon = ProjectItemIcon(self._toolbox, ":/icons/home.svg", QColor(Qt.GlobalColor.gray))

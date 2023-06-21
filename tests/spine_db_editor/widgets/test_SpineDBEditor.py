@@ -20,18 +20,18 @@ from PySide6.QtCore import QModelIndex, QItemSelectionModel
 import spinetoolbox.resources_icons_rc  # pylint: disable=unused-import
 from spinetoolbox.spine_db_editor.widgets.spine_db_editor import SpineDBEditor
 from spinetoolbox.spine_db_editor.mvcmodels.compound_parameter_models import CompoundParameterModel
-from .test_SpineDBEditorAdd import TestSpineDBEditorAddMixin
-from .test_SpineDBEditorUpdate import TestSpineDBEditorUpdateMixin
-from .test_SpineDBEditorRemove import TestSpineDBEditorRemoveMixin
-from .test_SpineDBEditorFilter import TestSpineDBEditorFilterMixin
-from ...mock_helpers import TestSpineDBManager
+from .test_SpineDBEditorAdd import SpineDBEditorAddTestMixin
+from .test_SpineDBEditorUpdate import SpineDBEditorUpdateTestMixin
+from .test_SpineDBEditorRemove import SpineDBEditorRemoveTestMixin
+from .test_SpineDBEditorFilter import SpineDBEditorFilterTestMixin
+from ...mock_helpers import MockSpineDBManager
 
 
 class TestSpineDBEditor(
-    TestSpineDBEditorAddMixin,
-    TestSpineDBEditorUpdateMixin,
-    TestSpineDBEditorRemoveMixin,
-    TestSpineDBEditorFilterMixin,
+    SpineDBEditorAddTestMixin,
+    SpineDBEditorUpdateTestMixin,
+    SpineDBEditorRemoveTestMixin,
+    SpineDBEditorFilterTestMixin,
     unittest.TestCase,
 ):
     @staticmethod
@@ -300,7 +300,7 @@ class TestSpineDBEditor(
         ):
             mock_settings = mock.Mock()
             mock_settings.value.side_effect = lambda *args, **kwargs: 0
-            self.db_mngr = TestSpineDBManager(mock_settings, None)
+            self.db_mngr = MockSpineDBManager(mock_settings, None)
             logger = mock.MagicMock()
             self.mock_db_map = self.db_mngr.get_db_map("sqlite://", logger, codename="database", create=True)
             self.spine_db_editor = SpineDBEditor(self.db_mngr, {"sqlite://": "database"})
@@ -420,7 +420,7 @@ class TestClosingDBEditors(unittest.TestCase):
         ):
             mock_settings = mock.Mock()
             mock_settings.value.side_effect = lambda *args, **kwargs: 0
-            self._db_mngr = TestSpineDBManager(mock_settings, None)
+            self._db_mngr = MockSpineDBManager(mock_settings, None)
             logger = mock.MagicMock()
             self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="database", create=True)
 

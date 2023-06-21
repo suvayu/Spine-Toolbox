@@ -32,7 +32,7 @@ from spinetoolbox.spine_db_editor.mvcmodels.empty_parameter_models import (
 )
 from spinetoolbox.helpers import DB_ITEM_SEPARATOR
 from spinedb_api.parameter_value import join_value_and_type
-from ...mock_helpers import TestSpineDBManager
+from ...mock_helpers import MockSpineDBManager
 
 
 def _empty_indexes(model):
@@ -49,7 +49,7 @@ class TestEmptyParameterModel(unittest.TestCase):
         """Overridden method. Runs before each test."""
         app_settings = mock.MagicMock()
         logger = mock.MagicMock()
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="mock_db", create=True)
         import_object_classes(self._db_map, ("dog", "fish"))
         import_object_parameters(self._db_map, (("dog", "breed"),))

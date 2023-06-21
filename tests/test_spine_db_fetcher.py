@@ -19,10 +19,10 @@ from PySide6.QtWidgets import QApplication
 from spinetoolbox.fetch_parent import ItemTypeFetchParent
 from spinedb_api import DatabaseMapping
 from spinedb_api.import_functions import import_data
-from tests.mock_helpers import TestSpineDBManager
+from tests.mock_helpers import MockSpineDBManager
 
 
-class TestItemTypeFetchParent(ItemTypeFetchParent):
+class MockItemTypeFetchParent(ItemTypeFetchParent):
     def __init__(self, item_type):
         super().__init__(item_type)
         self.handle_items_added = MagicMock()
@@ -37,7 +37,7 @@ class TestSpineDBFetcher(unittest.TestCase):
     def setUp(self):
         app_settings = MagicMock()
         self._logger = MagicMock()  # Collects error messages therefore handy for debugging.
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         self._db_map = self._db_mngr.get_db_map("sqlite://", self._logger, codename="test_db", create=True)
 
     def tearDown(self):
@@ -48,7 +48,7 @@ class TestSpineDBFetcher(unittest.TestCase):
         self._db_map.remove_items(alternative={1})
         self._db_map.commit_session("ddd")
         for item_type in DatabaseMapping.ITEM_TYPES:
-            fetcher = TestItemTypeFetchParent(item_type)
+            fetcher = MockItemTypeFetchParent(item_type)
             if self._db_mngr.can_fetch_more(self._db_map, fetcher):
                 self._db_mngr.fetch_more(self._db_map, fetcher)
             fetcher.handle_items_added.assert_not_called()
@@ -60,7 +60,7 @@ class TestSpineDBFetcher(unittest.TestCase):
 
     def test_fetch_alternatives(self):
         self._import_data(alternatives=("alt",))
-        fetcher = TestItemTypeFetchParent("alternative")
+        fetcher = MockItemTypeFetchParent("alternative")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call(
@@ -78,7 +78,7 @@ class TestSpineDBFetcher(unittest.TestCase):
     def test_fetch_scenarios(self):
         self._import_data(scenarios=("scenario",))
         item = {'id': 1, 'name': 'scenario', 'description': None, 'active': False, 'commit_id': 2}
-        fetcher = TestItemTypeFetchParent("scenario")
+        fetcher = MockItemTypeFetchParent("scenario")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -89,10 +89,10 @@ class TestSpineDBFetcher(unittest.TestCase):
         self._import_data(alternatives=("alt",), scenarios=("scenario",), scenario_alternatives=(("scenario", "alt"),))
         item = {'id': 1, 'scenario_id': 1, 'alternative_id': 2, 'rank': 1, 'commit_id': 2}
         for item_type in ("scenario", "alternative"):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("scenario_alternative")
+        fetcher = MockItemTypeFetchParent("scenario_alternative")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -110,7 +110,7 @@ class TestSpineDBFetcher(unittest.TestCase):
             'hidden': 0,
             'commit_id': 2,
         }
-        fetcher = TestItemTypeFetchParent("object_class")
+        fetcher = MockItemTypeFetchParent("object_class")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -121,12 +121,12 @@ class TestSpineDBFetcher(unittest.TestCase):
     def test_fetch_objects(self):
         self._import_data(object_classes=("oc",), objects=(("oc", "obj"),))
         item = {'id': 1, 'class_id': 1, 'name': 'obj', 'description': None, 'commit_id': 2}
-        self._db_mngr.fetch_more(self._db_map, TestItemTypeFetchParent("object_class"))
+        self._db_mngr.fetch_more(self._db_map, MockItemTypeFetchParent("object_class"))
         for item_type in ("object",):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("object")
+        fetcher = MockItemTypeFetchParent("object")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -145,10 +145,10 @@ class TestSpineDBFetcher(unittest.TestCase):
             'commit_id': 2,
         }
         for item_type in ("object_class",):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("relationship_class")
+        fetcher = MockItemTypeFetchParent("relationship_class")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -174,10 +174,10 @@ class TestSpineDBFetcher(unittest.TestCase):
             'commit_id': 2,
         }
         for item_type in ("object_class", "object", "relationship_class"):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("relationship")
+        fetcher = MockItemTypeFetchParent("relationship")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -189,7 +189,7 @@ class TestSpineDBFetcher(unittest.TestCase):
             object_classes=("oc",), objects=(("oc", "obj"), ("oc", "group")), object_groups=(("oc", "group", "obj"),)
         )
         item = {'id': 1, 'entity_class_id': 1, 'entity_id': 2, 'member_id': 1}
-        fetcher = TestItemTypeFetchParent("entity_group")
+        fetcher = MockItemTypeFetchParent("entity_group")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -212,10 +212,10 @@ class TestSpineDBFetcher(unittest.TestCase):
             'commit_id': 2,
         }
         for item_type in ("object_class",):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("parameter_definition")
+        fetcher = MockItemTypeFetchParent("parameter_definition")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -245,10 +245,10 @@ class TestSpineDBFetcher(unittest.TestCase):
             'commit_id': 2,
         }
         for item_type in ("object_class", "object", "parameter_definition", "alternative"):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("parameter_value")
+        fetcher = MockItemTypeFetchParent("parameter_value")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -258,13 +258,13 @@ class TestSpineDBFetcher(unittest.TestCase):
     def test_fetch_parameter_value_lists(self):
         self._import_data(parameter_value_lists=(("value_list", (2.3,)),))
         item = {'id': 1, 'name': 'value_list', 'commit_id': 2}
-        fetcher = TestItemTypeFetchParent("parameter_value_list")
+        fetcher = MockItemTypeFetchParent("parameter_value_list")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
         self.assertEqual(self._db_mngr.get_item(self._db_map, "parameter_value_list", 1), item)
         item = {'id': 1, 'parameter_value_list_id': 1, 'index': 0, 'value': b'[2.3]', 'type': None, 'commit_id': 2}
-        fetcher = TestItemTypeFetchParent("list_value")
+        fetcher = MockItemTypeFetchParent("list_value")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -286,10 +286,10 @@ class TestSpineDBFetcher(unittest.TestCase):
             'commit_id': 2,
         }
         for item_type in ("object_class", "parameter_definition", "parameter_value_list"):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("feature")
+        fetcher = MockItemTypeFetchParent("feature")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -299,7 +299,7 @@ class TestSpineDBFetcher(unittest.TestCase):
     def test_fetch_tools(self):
         self._import_data(tools=("tool",))
         item = {'id': 1, 'name': 'tool', 'description': None, 'commit_id': 2}
-        fetcher = TestItemTypeFetchParent("tool")
+        fetcher = MockItemTypeFetchParent("tool")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -317,10 +317,10 @@ class TestSpineDBFetcher(unittest.TestCase):
         )
         item = {'id': 1, 'tool_id': 1, 'feature_id': 1, 'parameter_value_list_id': 1, 'required': False, 'commit_id': 2}
         for item_type in ("tool", "feature", "object_class", "parameter_definition", "parameter_value_list"):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("tool_feature")
+        fetcher = MockItemTypeFetchParent("tool_feature")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})
@@ -347,10 +347,10 @@ class TestSpineDBFetcher(unittest.TestCase):
             "feature",
             "tool_feature",
         ):
-            dep_fetcher = TestItemTypeFetchParent(item_type)
+            dep_fetcher = MockItemTypeFetchParent(item_type)
             self._db_mngr.fetch_more(self._db_map, dep_fetcher)
             dep_fetcher.set_obsolete(True)
-        fetcher = TestItemTypeFetchParent("tool_feature_method")
+        fetcher = MockItemTypeFetchParent("tool_feature_method")
         if self._db_mngr.can_fetch_more(self._db_map, fetcher):
             self._db_mngr.fetch_more(self._db_map, fetcher)
         fetcher.handle_items_added.assert_any_call({self._db_map: [item]})

@@ -285,7 +285,7 @@ class MockInstantQProcess(mock.Mock):
             slot(*self._finished_args)
 
 
-class TestSpineDBManager(SpineDBManager):
+class MockSpineDBManager(SpineDBManager):
     # FIXME: Needed?
     def fetch_all(self, db_map):
         worker = self._get_worker(db_map)

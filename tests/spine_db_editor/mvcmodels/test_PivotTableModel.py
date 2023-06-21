@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 from PySide6.QtWidgets import QApplication
 from spinedb_api import Map
 from spinetoolbox.spine_db_editor.widgets.spine_db_editor import SpineDBEditor
-from ...mock_helpers import TestSpineDBManager
+from ...mock_helpers import MockSpineDBManager
 
 
 class TestParameterValuePivotTableModel(unittest.TestCase):
@@ -29,7 +29,7 @@ class TestParameterValuePivotTableModel(unittest.TestCase):
     def setUp(self):
         app_settings = MagicMock()
         logger = MagicMock()
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="test_db", create=True)
         with patch.object(SpineDBEditor, "restore_ui"):
             self._editor = SpineDBEditor(self._db_mngr, {"sqlite://": db_map.codename})
@@ -114,7 +114,7 @@ class TestIndexExpansionPivotTableModel(unittest.TestCase):
     def setUp(self):
         app_settings = MagicMock()
         logger = MagicMock()
-        self._db_mngr = TestSpineDBManager(app_settings, None)
+        self._db_mngr = MockSpineDBManager(app_settings, None)
         db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="test_db", create=True)
         with patch.object(SpineDBEditor, "restore_ui"):
             self._editor = SpineDBEditor(self._db_mngr, {"sqlite://": db_map.codename})

@@ -18,7 +18,7 @@ from PySide6.QtCore import QPointF
 from PySide6.QtWidgets import QApplication
 from spinetoolbox.spine_db_editor.graphics_items import RelationshipItem
 from spinetoolbox.spine_db_editor.widgets.spine_db_editor import SpineDBEditor
-from ..mock_helpers import TestSpineDBManager
+from ..mock_helpers import MockSpineDBManager
 
 
 class TestRelationshipItem(unittest.TestCase):
@@ -36,7 +36,7 @@ class TestRelationshipItem(unittest.TestCase):
         ):
             mock_settings = mock.Mock()
             mock_settings.value.side_effect = lambda *args, **kwargs: 0
-            self._db_mngr = TestSpineDBManager(mock_settings, None)
+            self._db_mngr = MockSpineDBManager(mock_settings, None)
             logger = mock.MagicMock()
             self._db_map = self._db_mngr.get_db_map("sqlite://", logger, codename="database", create=True)
             self._spine_db_editor = SpineDBEditor(self._db_mngr, {"sqlite://": "database"})

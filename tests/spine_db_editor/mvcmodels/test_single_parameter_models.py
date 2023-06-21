@@ -19,7 +19,7 @@ from spinetoolbox.spine_db_editor.mvcmodels.single_parameter_models import (
     SingleParameterModel,
     SingleObjectParameterValueModel,
 )
-from tests.mock_helpers import q_object, TestSpineDBManager
+from tests.mock_helpers import q_object, MockSpineDBManager
 
 OBJECT_PARAMETER_VALUE_HEADER = [
     "object_class_name",
@@ -62,7 +62,7 @@ class TestSingleObjectParameterValueModel(unittest.TestCase):
             QApplication()
 
     def setUp(self):
-        self._db_mngr = TestSpineDBManager(None, None)
+        self._db_mngr = MockSpineDBManager(None, None)
         self._logger = MagicMock()
         self._db_map = self._db_mngr.get_db_map("sqlite:///", self._logger, codename="Test database", create=True)
 

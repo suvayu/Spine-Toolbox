@@ -37,8 +37,8 @@ class TestAddProjectItemWidget(unittest.TestCase):
         ) as mock_load_project_items:
             mock_jump_props_widget.return_value = QWidget()
             mock_load_project_items.return_value = (
-                {TestProjectItem.item_type(): TestProjectItem.item_category()},
-                {TestProjectItem.item_type(): TestItemFactory},
+                {MockProjectItem.item_type(): MockProjectItem.item_category()},
+                {MockProjectItem.item_type(): TestItemFactory},
             )
             self._toolbox = create_toolboxui_with_project(self._temp_dir.name)
 
@@ -48,11 +48,11 @@ class TestAddProjectItemWidget(unittest.TestCase):
         self._temp_dir.cleanup()
 
     def test_name_field_initially_selected(self):
-        widget = AddProjectItemWidget(self._toolbox, 0.0, 0.0, class_=TestProjectItem)
+        widget = AddProjectItemWidget(self._toolbox, 0.0, 0.0, class_=MockProjectItem)
         self.assertEqual(widget.ui.lineEdit_name.selectedText(), "TestItemType")
 
     def test_find_item_is_used_to_create_prefix(self):
-        widget = AddProjectItemWidget(self._toolbox, 0.0, 0.0, class_=TestProjectItem)
+        widget = AddProjectItemWidget(self._toolbox, 0.0, 0.0, class_=MockProjectItem)
         self.assertEqual(widget.ui.lineEdit_name.text(), "TestItemType")
 
 
@@ -72,10 +72,10 @@ class TestAddProjectItemWidgetWithSpecifications(unittest.TestCase):
         ) as mock_load_specification_factories:
             mock_jump_props_widget.return_value = QWidget()
             mock_load_project_items.return_value = (
-                {TestProjectItem.item_type(): TestProjectItem.item_category()},
-                {TestProjectItem.item_type(): TestItemFactory},
+                {MockProjectItem.item_type(): MockProjectItem.item_category()},
+                {MockProjectItem.item_type(): TestItemFactory},
             )
-            mock_load_specification_factories.return_value = {TestProjectItem.item_type(): TestSpecificationFactory}
+            mock_load_specification_factories.return_value = {MockProjectItem.item_type(): TestSpecificationFactory}
             self._toolbox = create_toolboxui_with_project(self._temp_dir.name)
 
     def tearDown(self):
@@ -84,11 +84,11 @@ class TestAddProjectItemWidgetWithSpecifications(unittest.TestCase):
         self._temp_dir.cleanup()
 
     def test_specifications_combo_box_enabled_if_item_supports_specifications(self):
-        widget = AddProjectItemWidget(self._toolbox, 0.0, 0.0, class_=TestProjectItem)
+        widget = AddProjectItemWidget(self._toolbox, 0.0, 0.0, class_=MockProjectItem)
         self.assertTrue(widget.ui.comboBox_specification.isEnabled())
 
 
-class TestProjectItem(ProjectItem):
+class MockProjectItem(ProjectItem):
     def __init__(self, project):
         super().__init__("item name", "item description", 0.0, 0.0, project)
 
@@ -106,7 +106,7 @@ class TestProjectItem(ProjectItem):
 
     @staticmethod
     def from_dict(name, item_dict, toolbox, project):
-        return TestProjectItem(project)
+        return MockProjectItem(project)
 
     def update_name_label(self):
         return
@@ -115,7 +115,7 @@ class TestProjectItem(ProjectItem):
 class TestItemFactory(ProjectItemFactory):
     @staticmethod
     def item_class():
-        return TestProjectItem
+        return MockProjectItem
 
     @staticmethod
     def icon():
@@ -135,7 +135,7 @@ class TestItemFactory(ProjectItemFactory):
 
     @staticmethod
     def make_item(name, item_dict, toolbox, project):
-        return TestProjectItem(project)
+        return MockProjectItem(project)
 
     @staticmethod
     def make_properties_widget(toolbox):
