@@ -14,7 +14,7 @@
 
 from contextlib import contextmanager
 from unittest.mock import patch
-from matplotlib.gridspec import GridSpec
+from pathlib import Path
 import numpy
 from PySide6.QtCore import QItemSelectionModel, QModelIndex, QObject
 from PySide6.QtWidgets import QApplication
@@ -29,6 +29,7 @@ from spinedb_api import (
 )
 from spinetoolbox.plotting import (
     PlottingError,
+    get_df_from_node,
     get_ranges,
     get_resource,
     get_variants,
@@ -168,6 +169,39 @@ def test_variants():
     nplots, seq_cols = get_variants(sdf)
     pd.testing.assert_frame_equal(nplots, pd.DataFrame({"a": ["foo", "bar"]}))
     pd.testing.assert_frame_equal(seq_cols, pd.DataFrame({"b": [1, 2]}))
+
+
+def test_get_df_from_node():
+    node = {"A": {"t1": 1.1, "t2": 2.2}, "B": {"t1": 3.3, "t2": 4.4}}
+    df = get_df_from_node(node, index_names=["index name", "x_index"])
+    expected = pd.DataFrame(
+        {
+            "index name": ["A", "A", "B", "B"],
+            "x_index": ["t1", "t2", "t1", "t2"],
+            "value": [1.1, 2.2, 3.3, 4.4],
+        }
+    )
+    pd.testing.assert_frame_equal(df, expected)
+
+
+def test_get_df_from_node_nested():
+    node = {"db": {"p": {"t1": 1.1, "t2": 2.2}}}
+    df = get_df_from_node(node, 1, index_names=["db_name", "parameter_name", "x"])
+    expected = pd.DataFrame(
+        {
+            "db_name": ["db", "db"],
+            "parameter_name": ["p", "p"],
+            "x": ["t1", "t2"],
+            "value": [1.1, 2.2],
+        }
+    )
+    pd.testing.assert_frame_equal(df, expected)
+
+
+def test_get_df_from_node_default_index_names():
+    df = get_df_from_node({"t1": 1.1, "t2": 2.2})
+    expected = pd.DataFrame({"index_0": ["t1", "t2"], "value": [1.1, 2.2]})
+    pd.testing.assert_frame_equal(df, expected)
 
 
 def test_variants_multiple_sequence_columns():
@@ -684,157 +718,55 @@ class TestPlotPivotTableSelection:
 
 
 class TestPlotData(TestCaseWithQApplication):
-    # TODO: still relevant, but needs refactoring. `plot_data` now has signature
-    # `plot_data(dfs: list[pd.DataFrame], plot_widget=None, **selections)` and
-    # takes squeezed DataFrame(s), not `XYData`. The `XYData`/`IndexName`/`TreeNode`
-    # types and `LEGEND_PLACEMENT_THRESHOLD` are gone, and the widget is Bokeh-based
-    # (no `canvas.axes`/`lines`). Rewrite to build DataFrames and assert on
-    # `plot_widget.dataframe` / the rendered HTML.
+    @staticmethod
+    def _html(plot_widget) -> str:
+        return Path(plot_widget.html_path.name).read_text(encoding="utf8")
+
     def test_nothing_to_plot(self):
         plot_widget = plot_data([])
-        self.assertEqual(len(plot_widget.canvas.axes.lines), 0)
+        assert plot_widget
 
     def test_single_plot(self):
-        data = [XYData([-11, -22], [1.1, 2.2], IndexName("x_index", 1), "y", ["index_1"], [IndexName("index name", 0)])]
-        plot_widget = plot_data(data)
-        lines = plot_widget.canvas.axes.lines
-        self.assertEqual(plot_widget.canvas.axes.get_title(), "index_1")
-        self.assertEqual(plot_widget.canvas.axes.get_xlabel(), "x_index", 1)
-        self.assertEqual(plot_widget.canvas.axes.get_ylabel(), "y")
-        self.assertIsNone(plot_widget.canvas.legend_axes.get_legend())
-        self.assertEqual(len(lines), 1)
-        self.assertEqual(list(lines[0].get_xdata(orig=True)), [-11, -22])
-        self.assertEqual(list(lines[0].get_ydata(orig=True)), [1.1, 2.2])
+        df = pd.DataFrame(
+            {
+                "index name": ["index_1", "index_1"],
+                "x_index": [-11, -22],
+                "y": [1.1, 2.2],
+            }
+        )
+        plot_widget = plot_data([df])
+        expected = pd.DataFrame({"x_index": [-11, -22], "y": [1.1, 2.2]})
+        pd.testing.assert_frame_equal(plot_widget.dataframe, expected)
+        html = self._html(plot_widget)
+        self.assertIn("index name=index_1", html)
+        self.assertIn("x_index", html)
+        self.assertIn("y", html)
 
     def test_two_plots_with_shared_and_individual_indexes(self):
-        data = [XYData([-11, -22], [1.1, 2.2], IndexName("x_index", 1), "y", ["index_1"], [IndexName("index name", 0)])]
-        plot_widget = plot_data(data)
-        lines = plot_widget.canvas.axes.lines
-        self.assertEqual(plot_widget.canvas.axes.get_title(), "index_1")
-        self.assertEqual(plot_widget.canvas.axes.get_xlabel(), "x_index")
-        self.assertEqual(plot_widget.canvas.axes.get_ylabel(), "y")
-        self.assertIsNone(plot_widget.canvas.legend_axes.get_legend())
-        self.assertEqual(len(lines), 1)
-        self.assertEqual(list(lines[0].get_xdata(orig=True)), [-11, -22])
-        self.assertEqual(list(lines[0].get_ydata(orig=True)), [1.1, 2.2])
+        df1 = pd.DataFrame(
+            {
+                "index name": ["index_1", "index_1"],
+                "x_index": [-11, -22],
+                "y": [1.1, 2.2],
+            }
+        )
+        df2 = pd.DataFrame(
+            {
+                "index name": ["index_2", "index_2"],
+                "x_index": [-11, -22],
+                "y": [3.3, 4.4],
+            }
+        )
+        plot_widget = plot_data([df1, df2])
+        pd.testing.assert_frame_equal(plot_widget.dataframe, pd.concat([df1, df2], axis=0))
 
     def test_two_time_series_plots(self):
-        data = [
-            XYData(
-                [numpy.datetime64("2022-11-18T16:00:00"), numpy.datetime64("2022-11-18T17:00:00")],
-                [1.1, 2.2],
-                IndexName("time", 1),
-                "y",
-                ["index_1"],
-                [IndexName("index name", 0)],
-            ),
-            XYData(
-                [numpy.datetime64("2022-11-18T16:00:00"), numpy.datetime64("2022-11-18T17:00:00")],
-                [3.3, 4.4],
-                IndexName("time", 1),
-                "y",
-                ["index_2"],
-                [IndexName("index name", 0)],
-            ),
-        ]
-        plot_widget = plot_data(data)
-        self.assertFalse(plot_widget.canvas.has_twinned_axes())
-        self.assertEqual(plot_widget.canvas.axes.get_title(), "")
-        self.assertEqual(plot_widget.canvas.axes.get_xlabel(), "time")
-        self.assertEqual(plot_widget.canvas.axes.get_ylabel(), "y")
-        legend = plot_widget.canvas.legend_axes.get_legend()
-        legend_texts = [text_patch.get_text() for text_patch in legend.get_texts()]
-        self.assertEqual(legend_texts, ["index_1", "index_2"])
-        lines = plot_widget.canvas.axes.lines
-        self.assertEqual(len(lines), 2)
-        expected_x = [numpy.datetime64("2022-11-18T16:00:00"), numpy.datetime64("2022-11-18T17:00:00")]
-        self.assertEqual(list(lines[0].get_xdata(orig=True)), expected_x)
-        self.assertEqual(list(lines[0].get_ydata(orig=True)), [1.1, 2.2])
-        self.assertEqual(list(lines[1].get_xdata(orig=True)), expected_x)
-        self.assertEqual(list(lines[1].get_ydata(orig=True)), [3.3, 4.4])
-
-    def test_we_find_unsqueezed_index_no_matter_what(self):
-        data = [
-            XYData(
-                x=["t1", "t2"],
-                y=[13.0, 7.0],
-                x_label=IndexName("x", 1),
-                y_label="y",
-                data_index=["A1"],
-                index_names=[IndexName("idx", 0)],
-            ),
-            XYData(
-                x=["B1", "B2"], y=[-13.0, -7.0], x_label=IndexName("x", 1), y_label="y", data_index=[], index_names=[]
-            ),
-        ]
-        plot_widget = plot_data(data)
-        self.assertEqual(plot_widget.canvas.axes.get_title(), "")
-        self.assertEqual(plot_widget.canvas.axes.get_xlabel(), "x")
-        self.assertEqual(plot_widget.canvas.axes.get_ylabel(), "y")
-        legend = plot_widget.canvas.legend_axes.get_legend()
-        legend_texts = [text_patch.get_text() for text_patch in legend.get_texts()]
-        self.assertEqual(legend_texts, ["<root> | A1", "<root>"])
-        lines = plot_widget.canvas.axes.lines
-        self.assertEqual(len(lines), 2)
-        self.assertEqual(list(lines[0].get_xdata(orig=True)), ["t1", "t2"])
-        self.assertEqual(list(lines[0].get_ydata(orig=True)), [13.0, 7.0])
-        self.assertEqual(list(lines[1].get_xdata(orig=True)), ["B1", "B2"])
-        self.assertEqual(list(lines[1].get_ydata(orig=True)), [-13.0, -7.0])
-
-    def test_y_axis_is_not_labeled_when_more_than_two_labels_are_possible(self):
-        data = [
-            XYData(
-                x=["t1", "t2"],
-                y=[1.1, 2.2],
-                x_label=IndexName("x", 1),
-                y_label="y",
-                data_index=["A1"],
-                index_names=[IndexName("idx", 0)],
-            ),
-            XYData(
-                x=["t1", "t2"],
-                y=[3.3, 4.4],
-                x_label=IndexName("x", 1),
-                y_label="z",
-                data_index=["B1", "b1"],
-                index_names=[IndexName("jdx", 0), IndexName("kdx", 1)],
-            ),
-            XYData(x=["t1", "t2"], y=[5.5, 6.6], x_label=IndexName("x", 0), y_label="a", data_index=[], index_names=[]),
-        ]
-        plot_widget = plot_data(data)
-        self.assertFalse(plot_widget.canvas.has_twinned_axes())
-        self.assertEqual(plot_widget.canvas.axes.get_title(), "")
-        self.assertEqual(plot_widget.canvas.axes.get_xlabel(), "x")
-        self.assertEqual(plot_widget.canvas.axes.get_ylabel(), "")
-        legend = plot_widget.canvas.legend_axes.get_legend()
-        legend_texts = [text_patch.get_text() for text_patch in legend.get_texts()]
-        self.assertEqual(legend_texts, ["<root> | A1", "<root> | B1 | b1", "<root>"])
-        lines = plot_widget.canvas.axes.lines
-        self.assertEqual(len(lines), 3)
-        self.assertEqual(list(lines[0].get_xdata(orig=True)), ["t1", "t2"])
-        self.assertEqual(list(lines[0].get_ydata(orig=True)), [1.1, 2.2])
-        self.assertEqual(list(lines[1].get_xdata(orig=True)), ["t1", "t2"])
-        self.assertEqual(list(lines[1].get_ydata(orig=True)), [3.3, 4.4])
-        self.assertEqual(list(lines[2].get_xdata(orig=True)), ["t1", "t2"])
-        self.assertEqual(list(lines[2].get_ydata(orig=True)), [5.5, 6.6])
-
-    def test_legend_placement_below_threshold(self):
-        data = [
-            XYData(x=["x"], y=[1.0], x_label=IndexName("x", 0), y_label="", data_index=[], index_names=[])
-            for _ in range(LEGEND_PLACEMENT_THRESHOLD - 1)
-        ]
-        plot_widget = plot_data(data)
-        self.assertEqual(
-            repr(plot_widget.canvas.legend_axes.get_gridspec()), repr(GridSpec(2, 1, height_ratios=[1, 0]))
-        )
-
-    def test_legend_placement_above_threshold(self):
-        data = [
-            XYData(x=["x"], y=[1.0], x_label=IndexName("x", 0), y_label="", data_index=[], index_names=[])
-            for _ in range(LEGEND_PLACEMENT_THRESHOLD)
-        ]
-        plot_widget = plot_data(data)
-        self.assertEqual(repr(plot_widget.canvas.legend_axes.get_gridspec()), repr(GridSpec(1, 2, width_ratios=[1, 0])))
+        t0 = numpy.datetime64("2022-11-18T16:00:00")
+        t1 = numpy.datetime64("2022-11-18T17:00:00")
+        df1 = pd.DataFrame({"index name": ["index_1", "index_1"], "time": [t0, t1], "y": [1.1, 2.2]})
+        df2 = pd.DataFrame({"index name": ["index_2", "index_2"], "time": [t0, t1], "y": [3.3, 4.4]})
+        plot_widget = plot_data([df1, df2])
+        pd.testing.assert_frame_equal(plot_widget.dataframe, pd.concat([df1, df2], axis=0))
 
 
 class MultiSignalWaiter(QObject):

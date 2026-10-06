@@ -12,6 +12,8 @@
 
 """Functions for plotting on PlotWidget."""
 
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 import datetime
 import functools
 from importlib import resources
@@ -19,6 +21,7 @@ from itertools import starmap
 from operator import attrgetter, methodcaller
 import re
 from typing import Iterable, Literal, NamedTuple, TypeVar, TYPE_CHECKING
+
 from bokeh.core.properties import String
 from bokeh.embed import file_html
 from bokeh.layouts import column, gridplot, row
@@ -42,8 +45,10 @@ from bokeh.util.compiler import TypeScript
 import numpy as np
 import pandas as pd
 from PySide6.QtCore import QSize
-from spinedb_api.dataframes import to_dataframe
-from .mvcmodels.shared import PARAMETER_VALUE_ROLE
+
+from spinedb_api import DateTime, IndexedValue
+from spinedb_api.dataframes import to_dataframe, _record_batch_to_dataframe
+from .mvcmodels.shared import PARSED_ROLE, PARAMETER_VALUE_ROLE
 
 if TYPE_CHECKING:
     from .widgets.plot_widget import PlotWidget
@@ -623,6 +628,32 @@ def plot_value_editor_table_selection(model, model_indexes, plot_widget=None):
     return plot_data(dfs, plot_widget)
 
 
+def plot_db_mngr_items(items, _db_maps, _db_name_registry, plot_widget=None):
+    """Returns a plot widget with plots of database manager parameter value items.
+
+    Args:
+        items (list of dict): parameter value items
+        plot_widget (PlotWidget, optional): widget to add plots to
+    """
+    if not items:
+        raise PlottingError("Nothing to plot.")
+    dfs = [to_dataframe(item) for item in items if item["value"] is not None]
+    if not dfs:
+        raise PlottingError("Nothing to plot.")
+    return plot_data(dfs, plot_widget)
+
+
+from rich.pretty import pprint
+
+
+@dataclass
+class TreeNode:
+    """A labeled node in tree structure."""
+
+    label: str
+    content: dict = field(default_factory=dict)
+
+
 def plot_pivot_table_selection(model, model_indexes, plot_widget=None):
     """
     Returns a plot widget with plots of the selected indexes.
@@ -637,23 +668,209 @@ def plot_pivot_table_selection(model, model_indexes, plot_widget=None):
     """
     if not model_indexes:
         raise PlottingError("Nothing to plot.")
-    dfs = [
-        to_dataframe(model.index(i.row(), i.column()).data(PARAMETER_VALUE_ROLE))
-        for i in sorted(model_indexes, key=methodcaller("row"))
-    ]
-    return plot_data(dfs, plot_widget)
+    source_model = model.sourceModel()
+
+    x_index_name = ""
+    if source_model.plot_x_column is not None:
+        dummy_index = source_model.index(0, source_model.plot_x_column)
+        if model.mapFromSource(dummy_index).isValid():
+            x_index_name = source_model.x_parameter_name()
+
+    pprint(model)
+    pprint(source_model)
+    pprint(source_model.plot_x_column)
+    pprint(x_index_name)
+
+    def display_row(row):
+        return row + 1 - source_model.headerRowCount()
+
+    root_node = {}
+    index_name_0 = ("database",)
+    for model_index in sorted(map(model.mapToSource, model_indexes), key=methodcaller("row")):
+        value = _get_parsed_value(model_index, display_row)
+        if value is None:
+            continue
+        pprint(value)
+        pprint(value.to_dict())
+        pprint(value.index_name)
+        row = model_index.row()
+        with add_row_to_exception(row, display_row):
+            leaf_content = _convert_to_leaf(value)
+        object_names, parameter_name, alternative_name, db_name = source_model.all_header_names(model_index)
+        indexes = (db_name, parameter_name) + tuple(object_names) + (alternative_name,)
+        index_names = index_name_0 + _pivot_index_names(indexes)
+
+        if x_index_name:
+            x = source_model.x_value(model_index)
+            if isinstance(x, IndexedValue):
+                raise PlottingError(f"X column contains an unusable value at row {display_row(row)}")
+            if x is not None:
+                indexes = indexes + (x,)
+                index_names = index_names + (x_index_name,)
+        pprint(indexes)
+        pprint(index_names)
+        node = root_node
+        for i, index in enumerate(indexes[:-1]):
+            node = _set_default_node(node, index, index_names[i])
+        node[indexes[-1]] = leaf_content
+
+    df = get_df_from_node(root_node, index_names=index_names)
+    return plot_data([df], plot_widget)
 
 
-def plot_db_mngr_items(items, _db_maps, _db_name_registry, plot_widget=None):
-    """Returns a plot widget with plots of database manager parameter value items.
+def _set_default_node(root_node: dict, key, label):
+    """Gets node from the contents of root_node adding a new node if necessary.
 
     Args:
-        items (list of dict): parameter value items
-        plot_widget (PlotWidget, optional): widget to add plots to
+        root_node (TreeNode): root node
+        key (Hashable): key to root_node contents
+        label (str): label of possible new node
+
+    Returns:
+        TreeNode: node at given key
     """
-    if not items:
-        raise PlottingError("Nothing to plot.")
-    dfs = [to_dataframe(item) for item in items if item["value"] is not None]
-    if not dfs:
-        raise PlottingError("Nothing to plot.")
-    return plot_data(dfs, plot_widget)
+    try:
+        node = root_node[key]
+    except KeyError:
+        sub_node = {}
+        root_node[key] = sub_node
+        node = sub_node
+    return node
+
+
+def get_df_from_node(
+    root_node: dict, index_names: list[str] | None = None, indexes: list[str] | None = None
+) -> pd.DataFrame:
+    """Constructs a dataframe of plottable data from a nested dictionary.
+
+    This is the dataframe-based counterpart of the old ``turn_node_to_xy_data``.
+    Instead of yielding ``XYData`` records from ``TreeNode`` objects, it walks
+    the (former ``TreeNode.content``) nested dictionary and collects one row per
+    leaf value. The last column holds the y values, the column before it holds
+    the x values, and any preceding columns hold the values of the index levels
+    above the x.
+
+    Args:
+        root_node (dict): nested dictionary; keys are index values and values
+            are either sub-dictionaries (deeper index levels) or leaf values.
+        index_names (list of str, optional): names of the index levels, from the
+            root down to the x level. Defaults to positional names.
+        indexes (list, optional): current index values. Defaults to ``[]``.
+
+    Returns:
+        pandas.DataFrame: one row per leaf value.
+    """
+    if indexes is None:
+        indexes = []
+    rows = []
+
+    def walk(node, current_indexes):
+        for index, sub_node in node.items():
+            if isinstance(sub_node, dict):
+                walk(sub_node, current_indexes + [index])
+            else:
+                rows.append(current_indexes + [index, sub_node])
+
+    walk(root_node, indexes)
+    if not index_names:
+        n_levels = max((len(row) - 1 for row in rows), default=0)
+        index_names = [f"index_{i}" for i in range(n_levels)]
+    pprint(index_names)
+    pprint(rows)
+    return pd.DataFrame(rows, columns=[*index_names, "value"])
+
+
+def _get_parsed_value(model_index, display_row):
+    """Gets parsed value from model.
+
+    Args:
+        model_index (QModelIndex): model index
+        display_row (Callable): callable that returns a display row
+
+    Returns:
+        Any: parsed value
+
+    Raises:
+        PlottingError: raised if parsing of value failed
+    """
+    value = model_index.data(PARSED_ROLE)
+    if isinstance(value, Exception):
+        row = model_index.row()
+        raise PlottingError(f"Failed to plot row {display_row(row)}: {value}")
+    return value
+
+
+def _pivot_index_names(indexes):
+    """Gathers index names from pivot table.
+
+    Args:
+        indexes (tuple of str): "path" of indexes
+
+    Returns:
+        tuple of str: names corresponding to given indexes
+    """
+    excess_dimensions = len(indexes) - 4
+    if excess_dimensions == 0:
+        return "parameter_name", "object_name", "alternative_name"
+    object_index_names = tuple(f"object_{dimension + 1}_name" for dimension in range(excess_dimensions + 1))
+    return ("parameter_name",) + object_index_names + ("alternative_name",)
+
+
+def convert_indexed_value_to_tree(value):
+    """Converts indexed values to tree nodes recursively.
+
+    Args:
+        value (IndexedValue): value to convert
+
+    Returns:
+        TreeNode: root node of the converted tree
+
+    Raises:
+        ValueError: raised when leaf value couldn't be converted to float
+    """
+    d = {}
+    for index, x in zip(value.indexes, value.values):
+        if isinstance(x, IndexedValue):
+            x = convert_indexed_value_to_tree(x)
+        else:
+            try:
+                x = float(x)
+            except TypeError as error:
+                raise ValueError("cannot plot null values") from error
+        d[index] = x
+    return d
+
+
+def _convert_to_leaf(y):
+    """Converts parameter value to leaf TreeElement.
+
+    Args:
+        y (Any): parameter value
+
+    Returns:
+        float or datetime or TreeNode: leaf element
+    """
+    try:
+        if isinstance(y, IndexedValue):
+            return convert_indexed_value_to_tree(y)
+        return float(y)
+    except ValueError as error:
+        raise PlottingError(str(error)) from error
+    except TypeError as error:
+        if isinstance(y, DateTime):
+            return y.value
+        raise PlottingError(f"couldn't convert {type(y).__name__} to float.") from error
+
+
+@contextmanager
+def add_row_to_exception(row, display_row):
+    """Adds row information to PlottingError if it is raised in the with block.
+
+    Args:
+        row (int): row
+        display_row (Callable): function to convert row to display row
+    """
+    try:
+        yield None
+    except PlottingError as error:
+        raise PlottingError(f"Failed to plot row {display_row(row)}: {error}") from error
